@@ -1,0 +1,51 @@
+# CODE OAuth Service
+
+OAuth service for CODE.
+
+## What's included
+
+- A database using prisma to store auth
+- An OAuth handler to install apps
+- An API/endpoint to get the token for a given `customerId`
+
+## Getting Started
+
+Set up your `.env` file, see the example for required values
+
+```
+npm install
+npm run db-init
+npm run dev
+```
+
+### Install
+
+```
+npm install
+```
+
+### Run
+
+```
+npm run dev
+```
+
+### Build TS file
+
+```
+npm run build
+```
+
+### Run for prod
+
+```
+npm run prod
+```
+
+### DB Set Up
+
+must have database up and running
+
+npx prisma db push (creates schema)
+
+npx prisma db seed (adds data)
