@@ -1,51 +1,62 @@
-# CODE OAuth Service
+# HubSpot Public App OAuth Service
 
-OAuth service for CODE.
+## What this project does
 
-## What's included
+This OAuth Service repository is a stand-alone service for handling the OAuth 2.0 processes needed for a HubSpot integration.
 
-- A database using prisma to store auth
-- An OAuth handler to install apps
-- An API/endpoint to get the token for a given `customerId`
+## Why is this project useful:
 
-## Getting Started
+This project demonstrates how to:
 
-Set up your `.env` file, see the example for required values
+ - Set up the scopes needed for an integration
 
-```
-npm install
-npm run db-init
-npm run dev
-```
+ - Create a PostgreSQL database to store OAuth refresh and access tokens
 
-### Install
+ - Go through the initial OAuth installation
 
-```
-npm install
-```
+ - Generate the initial access token, and refresh access tokens after they expire
 
-### Run
+## URLs:
 
-```
-npm run dev
-```
+ - **GET /install**: Displays a clickable link to the OAuth authentication URL for users to connect the app to HubSpot. This should be the first step a new user or client performs to initiate the OAuth 2.0 authorization process.
 
-### Build TS file
+ - **GET /oauth-callback**: Handles the redirect from the HubSpot OAuth authorization process. Processes the authorization code to obtain an access token and refresh token for the HubSpot user.
 
-```
-npm run build
-```
+  - **GET /api/get-install-url**: Returns the OAuth authentication URL as a plain text string. Can be used by other services to get the install URL.
 
-### Run for prod
+  - **GET /api/get-token**: Returns the token for a given local customerId. Requires a `customerId=` query parameter.
 
-```
-npm run prod
-```
+## Getting started with the project:
 
-### DB Set Up
+Setup:
 
-must have database up and running
+1. Download and install [PostgreSQL](https://www.postgresql.org/download/), make sure it's running, and create an empty database. You need the username and password (defaults username is postgres and no password)
 
-npx prisma db push (creates schema)
+2. Clone the repo
 
-npx prisma db seed (adds data)
+3. Create the `.env` file with these entries (see examples in the [.env.example](./.env.example) file)
+ 
+ - `DATABASE_URL`: The local url to the postgres database (e.g. `postgresql://{username}:{password}@localhost:5432/{database name}`)
+ - `CLIENT_ID`: The client ID from the HubSpot public app
+ - `CLIENT_SECRET`: The client secret from the HubSpot public app
+ - `SCOPES`: A space separated list of scopes needed by the HubSpot public app. This should match the required scopes from the app settings.
+
+4. Run `npm install` to install the required Node packages.
+
+5. Run `npm run db-init` to create the necessary tables in PostgreSQL
+
+6. In your [HubSpot public app](https://developers.hubspot.com/docs/api/creating-an-app), add `localhost:3001/oauth-callback` as a redirect URL
+
+7. Make sure the scopes in your `.env` file match the required scopes in your app settings. By default, this will only need the `oauth` scope to complete the install process and generate the refresh and initial access token.
+
+8. Run `npm run dev` to start the server
+
+9. Visit `http://localhost:3001/install` in a browser to get the OAuth install link. Click the link to start the install process.
+
+## Where to get help?
+
+Please open an issue to report bugs or request features.
+
+## Who maintains and contributes to this project
+
+Various teams at HubSpot that focus on developer experience and app marketplace quality maintain and contribute to this project. In particular, this project was made possible by @zaradford, @rahmona-henry, @zman81988, and @therealdadams
