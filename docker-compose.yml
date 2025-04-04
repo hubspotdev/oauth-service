@@ -1,0 +1,47 @@
+# Specify Docker Compose file version
+version: '3.8'
+
+services:
+  # Main application service that runs the Node.js server
+  app:
+    build: .                    # Build using local Dockerfile
+    ports:
+      - "3001:3001"            # Map container port 3001 to host port 3001
+    env_file:
+      - .env                   # Load environment variables from .env file
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - .:/app                 # Mount current directory into container for live code updates
+      - /app/node_modules      # Preserve container's node_modules (don't override with host)
+    # Handle database setup as part of app startup
+    command: >
+      sh -c "
+        npx prisma db push --accept-data-loss &&
+        npm run dev
+      "
+
+  # PostgreSQL database service
+  db:
+    image: postgres:14         # Use PostgreSQL 14 official image
+    ports:
+      - "5432:5432"           # Map default PostgreSQL port to host
+    environment:
+      # Database initialization settings
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=oauth_service
+    volumes:
+      # Persist database data between container restarts
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      # Check if database is ready to accept connections
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s            # Check every 5 seconds
+      timeout: 5s            # Timeout after 5 seconds
+      retries: 5             # Retry 5 times before marking unhealthy
+
+# Named volumes declaration for persistent data
+volumes:
+  postgres_data:            # Volume for storing PostgreSQL data
