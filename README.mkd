@@ -32,7 +32,9 @@ This project demonstrates how to:
 
 1. Clone the repo
 
-2. Create the `.env` file with these entries (see examples in the [.env.example](./.env.example) file)
+2. If you haven't done so yet, please make sure to instal [Docker](https://www.docker.com/get-started/) on your local environment.
+
+3. Create the `.env` file with these entries (see examples in the [.env.example](./.env.example) file)
 
  - `DATABASE_URL`: `postgresql://postgres:postgres@db:5432/oauth_service`
  - `CLIENT_ID`: The client ID from the HubSpot public app
