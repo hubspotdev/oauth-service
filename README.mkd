@@ -16,6 +16,8 @@ This project demonstrates how to:
 
  - Generate the initial access token, and refresh access tokens after they expire
 
+ - Provide token access to other services via a dedicated network
+
 ## URLs:
 
  - **GET /install**: Displays a clickable link to the OAuth authentication URL for users to connect the app to HubSpot. This should be the first step a new user or client performs to initiate the OAuth 2.0 authorization process.
@@ -38,54 +40,123 @@ This project demonstrates how to:
  - `CLIENT_ID`: The client ID from the HubSpot public app
  - `CLIENT_SECRET`: The client secret from the HubSpot public app
  - `SCOPES`: A space separated list of scopes needed by the HubSpot public app
-
-3. In your [HubSpot public app](https://developers.hubspot.com/docs/api/creating-an-app), add `localhost:3001/oauth-callback` as a redirect URL
-
-4. Start the application:
+3. Start the service:
 ```bash
 docker-compose up --build
 ```
 
-The application will be available at `http://localhost:3001`
+4. Initialize OAuth token:
+   - Visit `http://localhost:3001/install`
+   - Click the authorization link
+   - Complete the HubSpot OAuth flow
+   - A token will be stored with customerId="1"
 
-### Manual Setup (Alternative):
+### Connecting Other Services
 
-1. Download and install [PostgreSQL](https://www.postgresql.org/download/), make sure it's running, and create an empty database.
+To connect another service to the OAuth service:
 
-2. Clone the repo
-
-3. Create the `.env` file with these entries:
- - `DATABASE_URL`: The local url to the postgres database (e.g. `postgresql://{username}:{password}@localhost:5432/{database name}`)
- - `CLIENT_ID`: The client ID from the HubSpot public app
- - `CLIENT_SECRET`: The client secret from the HubSpot public app
- - `SCOPES`: A space separated scopes needed by the HubSpot public app
-
-4. Run `npm install` to install the required Node packages.
-
-5. Run `npm run db-init` to create the necessary tables in PostgreSQL
-
-6. Run `npm run dev` to start the server
-
-## Docker Commands
-
-```bash
-# Start the services
-docker-compose up --build
-
-# Stop the services
-docker-compose down
-
-# View logs
-docker-compose logs -f
-
-# Reset database (will delete all data)
-docker-compose down -v
+1. Add these networks to your service's docker-compose.yml:
+```yaml
+networks:
+  app-network:
+    driver: bridge
+  oauth-service_oauth-network:
+    external: true
 ```
+
+2. Add the network and configuration to your service:
+```yaml
+services:
+  app:
+    env_file:
+      - .env               # Contains OAUTH_SERVICE_URL=http://app:3001
+    networks:
+      - app-network
+      - oauth-service_oauth-network
+```
+
+3. Configure your database to use a different port:
+
+```yaml
+  db:
+    ports:
+      - "5433:5432"    # Different from OAuth service's 5432
+```
+
+
+3. Add code to access tokens from your service, example:
+```typescript
+const OAUTH_SERVICE_URL = process.env.OAUTH_SERVICE_URL || 'http://app:3001';
+
+export async function getHubSpotToken(customerId: string): Promise<string> {
+  try {
+    const response = await fetch(`${OAUTH_SERVICE_URL}/api/get-token?customerId=${customerId}`);
+    const data = await response.json();
+    if (data.accessToken) {
+      return data.accessToken;
+    }
+    throw new Error(data.errorMessage || 'Failed to get access token');
+  } catch (error) {
+    console.error('Failed to get token:', error);
+    throw error;
+  }
+}
+```
+
+
+## Available Scripts
+
+### Docker Commands
+- `docker-compose up --build` - Build and start all services
+- `docker-compose down` - Stop all services
+- `docker-compose down -v` - Stop all services and remove volumes (resets database)
+- `docker-compose logs -f` - Watch logs in real-time
+
+### Application Commands
+These commands can be run inside the Docker container using `docker-compose exec app`:
+- `docker-compose exec app npm run dev` - Start development server
+- `docker-compose exec app npm run build` - Build TypeScript files
+- `docker-compose exec app npm run prod` - Run production server
+- `docker-compose exec app npm run db-init` - Initialize database schema
+- `docker-compose exec app npm run seed` - Run database seeding
+
+### Database Commands
+- `docker-compose exec db psql -U postgres -d oauth_service` - Access PostgreSQL CLI
+- `docker-compose exec app npx prisma studio` - Open Prisma Studio (database GUI)
+- `docker-compose exec app npx prisma generate` - Generate Prisma client
+- `docker-compose exec app npx prisma db push` - Push schema changes to database
+
+## Dependencies
+
+All dependencies are automatically handled by Docker. However, for reference, here are the key packages used:
+
+### Core Dependencies
+These are included in the Docker container:
+- `@hubspot/api-client` (^6.0.1) - HubSpot API integration
+- `@prisma/client` (^3.14.0) - Database ORM
+- `express` (^4.17.1) - Web framework
+- `dotenv` (^16.0.1) - Environment configuration
+- `axios` (^0.27.2) - HTTP client
+- `form-data` (^4.0.0) - Form data handling
+
+### Development Dependencies
+These are also included in the Docker environment:
+- `typescript` (^4.1.3) - Programming language
+- `prisma` (^4.1.0) - Database toolkit
+- `nodemon` (^2.0.7) - Development server
+- `ts-node` (^10.9.1) - TypeScript execution
+- `prettier-plugin-prisma` (^3.14.0) - Prisma file formatting
+- `@types/express` (^4.17.11) - Express TypeScript definitions
+- `@types/node` (^14.14.22) - Node.js TypeScript definitions
 
 ## Where to get help?
 
-Please open an issue to report bugs or request features.
+If you encounter any bugs or issues, please report them by opening a GitHub issue. For feedback or suggestions for new code examples, we encourage you to use this [form](https://survey.hsforms.com/1RT0f09LSTHuflzNtMbr2jA96it).
 
 ## Who maintains and contributes to this project
 
-Various teams at HubSpot that focus on developer experience and app marketplace quality maintain and contribute to this project. In particular, this project was made possible by @zaradford, @rahmona-henry, @zman81988, and @therealdadams
+Various teams at HubSpot that focus on developer experience and app marketplace quality maintain and contribute to this project. In particular, this project was made possible by @therealdadams, @rahmona-henry, @zman81988, @natalijabujevic0708, and @zradford
+
+## License
+
+MIT
