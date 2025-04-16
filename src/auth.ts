@@ -4,6 +4,7 @@ import { Authorization } from "@prisma/client";
 import handleError from './utils/error';
 import prisma from '../prisma/seed'
 import { getCustomerId, getServerPort } from './utils/utils';
+import { logger } from './utils/logger';
 
 interface ExchangeProof {
   grant_type: string;
@@ -31,12 +32,8 @@ const CLIENT_SECRET: string =
   process.env.CLIENT_SECRET || "CLIENT_SECRET required";
 
 const REDIRECT_URI: string = `http://localhost:${getServerPort()}/oauth-callback`;
-console.log('SCOPES.env ', process.env.SCOPES)
 const SCOPES = process.env.SCOPES?.split(',') || 'SCOPES required'
 const scopeString = SCOPES?.toString().replaceAll(",", " ");
-
-console.log('SCOPES ', SCOPES)
-
 
 const EXCHANGE_CONSTANTS = {
   redirect_uri: REDIRECT_URI,
@@ -46,7 +43,16 @@ const EXCHANGE_CONSTANTS = {
 
 const hubspotClient = new hubspot.Client();
 
-console.log('SCOPES to string', scopeString)
+logger.info({
+  logMessage: {
+    message: "OAuth configuration initialized",
+    data: {
+      scopes: SCOPES,
+      redirectUri: REDIRECT_URI
+    }
+  },
+  context: "OAuth Init"
+});
 
 const authUrl = hubspotClient.oauth.getAuthorizationUrl(
   CLIENT_ID,
@@ -145,7 +151,7 @@ const exchangeForTokens = async (
 
       return tokenInfo;
   } catch(error){
-    handleError(error, 'There was an issue upserting the user\'s auth token info to Prisma ', true)
+    handleError(error, 'There was an issue upserting the user\'s auth token info to Prisma ', false)
   }
 };
 
@@ -177,7 +183,7 @@ const getAccessToken = async (customerId: string): Promise<string | void> => {
       }
     }
   } catch (error) {
-    handleError(error, 'There was an issue getting or exchanging access tokens ', true)
+    handleError(error, 'There was an issue getting or exchanging access tokens ', false)
   }
 };
 

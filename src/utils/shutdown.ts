@@ -1,41 +1,70 @@
 import disconnectPrisma from '../../prisma/disconnect';
 import server from '../app';
+import { logger } from './logger';
 
 async function shutdown(): Promise<void> {
   try {
-    console.log('Initiating graceful shutdown...');
+    logger.info({
+      logMessage: {
+        message: "Initiating graceful shutdown"
+      },
+      context: "Shutdown"
+    });
 
     const closeServerPromise = new Promise<void>((resolve, reject) => {
       server.close((err) => {
-        console.log('Server close callback called.');
         if (err) {
-          console.error('Error closing the server:', err);
+          logger.error({
+            logMessage: {
+              message: "Error closing the server",
+              error: err
+            },
+            context: "Server Shutdown"
+          });
           reject(err);
         } else {
+          logger.info({
+            logMessage: {
+              message: "Server closed successfully"
+            },
+            context: "Server Shutdown"
+          });
           resolve();
         }
       });
 
-      // Set a timeout in case the server does not close within a reasonable time
       setTimeout(() => {
-        console.warn('Forcing server shutdown after timeout.');
+        logger.warn({
+          logMessage: {
+            message: "Forcing server shutdown after timeout"
+          },
+          context: "Server Shutdown"
+        });
         resolve();
       }, 5000);
     });
 
     await Promise.all([
-      closeServerPromise.then(() => {
-        console.log('HTTP server closed successfully.');
-      }).catch((err) => {
-        console.error('Error during server close:', err);
-      }),
-      disconnectPrisma().catch(err => console.error('Error during Prisma disconnection:', err))
+      closeServerPromise,
+      disconnectPrisma()
     ]);
 
-    console.log('Graceful shutdown complete.');
+    logger.info({
+      logMessage: {
+        message: "Graceful shutdown complete"
+      },
+      context: "Shutdown"
+    });
     process.exit(0);
   } catch (err) {
-    console.error('Error during shutdown:', err);
+    logger.error({
+      logMessage: {
+        message: "Error during shutdown",
+        error: err as Error
+      },
+      context: "Shutdown",
+      critical: true
+    });
     process.exit(1);
   }
 }
