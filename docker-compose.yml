@@ -13,14 +13,16 @@ services:
       db:
         condition: service_healthy
     volumes:
-      - .:/app                 # Mount current directory into container for live code updates
       - /app/node_modules      # Preserve container's node_modules (don't override with host)
-    # Handle database setup as part of app startup
-    command: >
-      sh -c "
-        npx prisma db push --accept-data-loss &&
-        npm run dev
-      "
+    develop:
+      watch:
+        - action: sync
+          path: ./src
+          target: /app/src/
+          ignore:
+            - node_modules/**
+        - action: rebuild
+          path: package.json
     networks:
       - internal-network    # For DB communication
       - oauth-network      # For external services

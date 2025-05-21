@@ -25,4 +25,4 @@ RUN npx prisma generate
 EXPOSE 3001
 
 # Command to run the application
-CMD ["npm", "run", "dev"]
+CMD ["sh", "-c", "npx prisma db push --accept-data-loss && npm run dev"]
