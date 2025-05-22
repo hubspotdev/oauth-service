@@ -4,8 +4,8 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "dev": "nodemon src/app.ts",
-    "prod": "node dist/app.js",
+    "dev": "nodemon -L --watch src --ext ts,js,json --exec ts-node src/app.ts",
+    "prod": "node dist/src/app.js",
     "build": "tsc",
     "seed": "npx prisma db seed",
     "db-init": "npx prisma db push"

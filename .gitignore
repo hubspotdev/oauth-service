@@ -21,3 +21,8 @@ yarn-error.log*
 *.njsproj
 *.sln
 *.sw*
+
+# Prisma
+prisma/.env
+prisma/*.db
+prisma/*.db-journal

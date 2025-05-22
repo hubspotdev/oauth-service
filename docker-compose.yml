@@ -1,60 +1,72 @@
-# Specify Docker Compose file version
 version: '3.8'
 
 services:
-  # Main application service that runs the Node.js server
-  app:
-    build: .                    # Build using local Dockerfile
-    ports:
-      - "3001:3001"            # Map container port 3001 to host port 3001
+  # Database schema migration service for production
+  prisma-migrate:
+    build:
+      context: .
+      target: production  # Use production stage from Dockerfile
+    command: npx prisma migrate deploy  # Apply existing migrations
     env_file:
-      - .env                   # Load environment variables from .env file
+      - .env
     depends_on:
       db:
-        condition: service_healthy
-    volumes:
-      - /app/node_modules      # Preserve container's node_modules (don't override with host)
-    develop:
-      watch:
-        - action: sync
-          path: ./src
-          target: /app/src/
-          ignore:
-            - node_modules/**
-        - action: rebuild
-          path: package.json
+        condition: service_healthy  # Wait for database to be ready
     networks:
-      - internal-network    # For DB communication
-      - oauth-network      # For external services
+      - default
+
+  # Main application service
+  app:
+    build:
+      context: .
+      target: production  # Use production stage from Dockerfile
+    ports:
+      - "3001:3001"  # Expose application port
+    env_file:
+      - .env
+    depends_on:
+      db:
+        condition: service_healthy  # Wait for database to be ready
+      prisma-migrate:
+        condition: service_completed_successfully  # Wait for migrations to complete
+    command: npm run prod  # Run in production mode
+    environment:
+      NODE_ENV: production  # Set production environment
+    networks:
+      - default
+      - oauth-service_oauth-network  # Network for OAuth service communication
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3001/install"]  # Check if app is responding
+      interval: 30s  # Check every 30 seconds
+      timeout: 10s   # Fail if check takes longer than 10 seconds
+      retries: 3     # Allow 3 failed attempts before marking unhealthy
+      start_period: 40s  # Give app 40 seconds to start up
+    restart: always  # Always restart on failure
 
   # PostgreSQL database service
   db:
-    image: postgres:14         # Use PostgreSQL 14 official image
+    image: postgres:14
     ports:
-      - "5432:5432"           # Map default PostgreSQL port to host
-    environment:
-      # Database initialization settings
-      - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=postgres
-      - POSTGRES_DB=oauth_service
+      - "5432:5432"  # Expose database port
+    env_file:
+      - .env
     volumes:
-      # Persist database data between container restarts
-      - postgres_data:/var/lib/postgresql/data
+      - postgres_data:/var/lib/postgresql/data  # Persist database data
     healthcheck:
-      # Check if database is ready to accept connections
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
-      interval: 5s            # Check every 5 seconds
-      timeout: 5s            # Timeout after 5 seconds
-      retries: 5             # Retry 5 times before marking unhealthy
+      test: ["CMD-SHELL", "pg_isready -U postgres"]  # Check if database is ready
+      interval: 5s   # Check every 5 seconds
+      timeout: 5s    # Fail if check takes longer than 5 seconds
+      retries: 5     # Allow 5 failed attempts before marking unhealthy
     networks:
-      - internal-network    # Only needs internal network
+      - default
 
-# Named volumes declaration for persistent data
+# Define volumes for data persistence
 volumes:
-  postgres_data:            # Volume for storing PostgreSQL data
+  postgres_data:  # Named volume for database data
 
+# Define networks for service communication
 networks:
-  internal-network:    # Private network for app and db
-    driver: bridge
-  oauth-network:      # Public network for external services
-    driver: bridge
+  default:
+    driver: bridge  # Default network for internal communication
+  oauth-service_oauth-network:
+    external: true  # External network for OAuth service communication

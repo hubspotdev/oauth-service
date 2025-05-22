@@ -1,0 +1,27 @@
+services:
+  # Development configuration for the main application
+  app:
+    build:
+      target: development  # Use development stage from Dockerfile
+    command: npm run dev   # Run in development mode with hot reloading
+    volumes:
+      - .:/app            # Mount current directory for live code updates
+      - /app/node_modules # Preserve container's node_modules
+    environment:
+      NODE_ENV: development  # Set development environment
+    restart: unless-stopped  # Restart on failure, but not on manual stop
+
+  # Development configuration for database schema management
+  prisma-migrate:
+    build:
+      target: development  # Use development stage from Dockerfile
+    command: >
+      sh -c "
+        echo 'Waiting for database to be ready...' &&
+        npx prisma db push --accept-data-loss &&  # Auto-update database schema
+        npx prisma generate &&                    # Generate Prisma client
+        echo 'Database schema initialized successfully'
+      "
+    depends_on:
+      db:
+        condition: service_healthy  # Wait for database to be ready
