@@ -26,28 +26,46 @@ app.get("/install", (req: Request, res: Response) => {
 app.get("/oauth-callback", async (req: Request, res: Response):Promise<void> => {
   const code = req.query.code;
 
-  if (code) {
-    try {
-      const authInfo = await redeemCode(code.toString());
-      if(authInfo){
-        logger.info({
-          logMessage: {
-            message: "OAuth authentication successful",
-            data: {
-              hubId: authInfo.hsPortalId,
-              expiresIn: authInfo.expiresIn
-            }
-          },
-          context: "OAuth Callback"
-        });
-        res.send(`Token created successfully for HubId ${authInfo.hsPortalId}, see server/console logs for details`)
-      }
-    } catch (error: any) {
-      handleError(error, 'OAuth callback error')
-      res.redirect(`/?errMessage=${error.message}`);
-    }
+  if (!code) {
+    logger.warn({
+      logMessage: {
+        message: "No auth code provided in callback"
+      },
+      context: "OAuth Callback"
+    });
+    res.redirect('/?errMessage=No authorization code provided');
+    return;
   }
-})
+
+  try {
+    const authInfo = await redeemCode(code.toString());
+    if (!authInfo) {
+      throw new Error('Failed to exchange authorization code');
+    }
+
+    logger.info({
+      logMessage: {
+        message: "Auth success",
+        data: {
+          hubId: authInfo.hsPortalId,
+          expiresIn: authInfo.expiresIn
+        }
+      },
+      context: "OAuth Callback"
+    });
+    res.send(`Token created successfully for HubId ${authInfo.hsPortalId}, see server/console logs for details`);
+  } catch (error: any) {
+    logger.error({
+      logMessage: {
+        message: "OAuth callback error",
+        error: error as Error
+      },
+      context: "OAuth Callback"
+    });
+    handleError(error, 'There was an issue in the Oauth callback ');
+    res.redirect(`/?errMessage=${error.message}`);
+  }
+});
 
 app.get("/api/get-install-url", (req: Request, res: Response) => {
   res.send(authUrl);

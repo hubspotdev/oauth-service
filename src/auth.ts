@@ -67,14 +67,21 @@ const getExpiresAt = (expiresIn: number): Date => {
 };
 
 const redeemCode = async (code: string): Promise<Authorization | void> => {
-  try{
-    return await exchangeForTokens({
+  try {
+    const result = await exchangeForTokens({
       ...EXCHANGE_CONSTANTS,
       code,
       grant_type: "authorization_code",
     });
-  } catch(error){
-    handleError(error, 'There was an issue while exchanging Oauth tokens ')
+
+    if (!result) {
+      throw new Error('Failed to exchange code for tokens');
+    }
+
+    return result;
+  } catch(error) {
+    handleError(error, 'There was an issue while exchanging Oauth tokens ');
+    throw error; // Re-throw to be handled by the route
   }
 };
 
