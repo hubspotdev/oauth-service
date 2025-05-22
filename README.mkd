@@ -34,20 +34,20 @@ This project demonstrates how to:
 
 1. Clone the repo
 
-2. If you haven't done so yet, please make sure to instal [Docker](https://www.docker.com/get-started/) on your local environment.
+2. If you haven't done so yet, please make sure to install [Docker](https://www.docker.com/get-started/) on your local environment.
 
-3. Create the `.env` file with these entries (see examples in the [.env.example](./.env.example) file)
+3. Create the `.env` file (see examples in the [.env.example](./.env.example) file)
 
- - `DATABASE_URL`: `postgresql://postgres:postgres@db:5432/oauth_service`
- - `CLIENT_ID`: The client ID from the HubSpot public app
- - `CLIENT_SECRET`: The client secret from the HubSpot public app
- - `SCOPES`: A space separated list of scopes needed by the HubSpot public app
-3. Start the service:
+4. Start the service:
 ```bash
+# For development:
 docker-compose up --build
+
+# For production:
+docker-compose -f docker-compose.yml up --build
 ```
 
-4. Initialize OAuth token:
+5. Initialize OAuth token:
    - Visit `http://localhost:3001/install`
    - Click the authorization link
    - Complete the HubSpot OAuth flow
@@ -78,15 +78,19 @@ services:
 ```
 
 3. Configure your database to use a different port:
-
 ```yaml
   db:
     ports:
       - "5433:5432"    # Different from OAuth service's 5432
 ```
 
+4. Important Network Notes:
+   - The `oauth-service_oauth-network` must be created before starting your service
+   - You can create it by running `docker network create oauth-service_oauth-network`
+   - This network allows secure communication between your service and the OAuth service
+   - The network name must match exactly: `oauth-service_oauth-network`
 
-3. Add code to access tokens from your service, example:
+5. Add code to access tokens from your service, example:
 ```typescript
 const OAUTH_SERVICE_URL = process.env.OAUTH_SERVICE_URL || 'http://app:3001';
 
@@ -109,14 +113,15 @@ export async function getHubSpotToken(customerId: string): Promise<string> {
 ## Available Scripts
 
 ### Docker Commands
-- `docker-compose up --build` - Build and start all services
+- `docker-compose up --build` - Build and start all services in development mode
+- `docker-compose -f docker-compose.yml up --build` - Build and start all services in production mode
 - `docker-compose down` - Stop all services
 - `docker-compose down -v` - Stop all services and remove volumes (resets database)
 - `docker-compose logs -f` - Watch logs in real-time
 
 ### Application Commands
 These commands can be run inside the Docker container using `docker-compose exec app`:
-- `docker-compose exec app npm run dev` - Start development server
+- `docker-compose exec app npm run dev` - Start development server with hot reloading
 - `docker-compose exec app npm run build` - Build TypeScript files
 - `docker-compose exec app npm run prod` - Run production server
 - `docker-compose exec app npm run db-init` - Initialize database schema
