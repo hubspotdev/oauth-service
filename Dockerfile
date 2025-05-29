@@ -4,7 +4,7 @@ WORKDIR /app
 
 # Install system dependencies and clean up
 RUN apt-get update && \
-    apt-get install -y openssl && \
+    apt-get install -y openssl curl && \
     rm -rf /var/lib/apt/lists/*
 
 # Copy package files for dependency installation
@@ -37,7 +37,7 @@ WORKDIR /app
 
 # Install system dependencies and clean up
 RUN apt-get update && \
-    apt-get install -y openssl && \
+    apt-get install -y openssl curl && \
     rm -rf /var/lib/apt/lists/*
 
 # Copy only necessary files from previous stages

@@ -5,12 +5,14 @@ import shutdown from './utils/shutdown';
 import handleError from './utils/error'
 import { getServerPort } from './utils/utils'
 import { logger } from './utils/logger';
+import { PrismaClient } from '@prisma/client';
 
 const app: Application = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 const serverPort:number = getServerPort();
 const clientPort:number = serverPort - 1;
+const prisma = new PrismaClient();
 
 type accessTokenResponse = {
   accessToken?: String,
@@ -83,6 +85,17 @@ app.get("/api/get-token", async (req: Request, res:Response): Promise<void> => {
   }
 
   try {
+    // First check if we have any authorization record for this customer
+    const existingAuth = await prisma.authorization.findFirst({
+      where: { customerId: String(customerId) }
+    });
+
+    if (!existingAuth) {
+      tokenDetails.errorMessage = "No OAuth authorization found. Please complete the OAuth flow first.";
+      res.status(401).send(tokenDetails);
+      return;
+    }
+
     // Attempt to get access token
     const getTokenResponse = await getAccessToken(String(customerId));
     if(getTokenResponse){
@@ -91,7 +104,7 @@ app.get("/api/get-token", async (req: Request, res:Response): Promise<void> => {
       res.send(tokenDetails);
       return;
     }
-  } catch (error) {
+  } catch (error: any) {
     logger.error({
       logMessage: {
         message: "Error getting token",
@@ -100,14 +113,19 @@ app.get("/api/get-token", async (req: Request, res:Response): Promise<void> => {
       },
       context: "Token Retrieval"
     });
+
+    // Check if it's a refresh token error
+    if (error?.message?.includes('BAD_REFRESH_TOKEN')) {
+      tokenDetails.errorMessage = "OAuth session expired. Please re-authenticate.";
+      res.status(401).send(tokenDetails);
+      return;
+    }
   }
 
-  // Token acquisition failed due to one of the following conditions:
-  // 1. No valid token exists in the database
-  // 2. Token refresh attempt was unsuccessful
-  // Redirecting to OAuth installation flow for re-authentication
-  res.redirect('/install');
-})
+  // If we get here, something else went wrong
+  tokenDetails.errorMessage = "Failed to retrieve access token. Please try re-authenticating.";
+  res.status(500).send(tokenDetails);
+});
 
 const server = app.listen(serverPort, function () {
   logger.info({
