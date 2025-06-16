@@ -1,3 +1,8 @@
+![Containerization Available](https://img.shields.io/badge/Containerization-Available-blue)
+
+⚠️ **For Docker users:**  
+Switch to the [`containerization`](https://github.com/hubspotdev/oauth-service/tree/containerization) branch for Docker setup and usage instructions.
+
 # HubSpot Public App OAuth Service
 
 ## What this project does
