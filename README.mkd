@@ -30,8 +30,6 @@ This project demonstrates how to:
 
 ## Getting started with the project:
 
-### Using Docker (Recommended):
-
 1. Clone the repo
 
 2. If you haven't done so yet, please make sure to install [Docker](https://www.docker.com/get-started/) on your local environment.
@@ -55,59 +53,104 @@ docker-compose -f docker-compose.yml up --build
 
 ### Connecting Other Services
 
-To connect another service to the OAuth service:
+Multiple ways of connecting another service to the OAuth service:
 
-1. Add these networks to your service's docker-compose.yml:
-```yaml
-networks:
-  app-network:
-    driver: bridge
-  oauth-service_oauth-network:
-    external: true
-```
+1. **Connecting via External Docker Network:**
+   1. Add these networks to your service's docker-compose.yml:
+      ```yaml
+      networks:
+        app-network:
+          driver: bridge
+        oauth-service_oauth-network:
+          external: true
+      ```
+   
+   2. Add the network and configuration to your service:
+      ```yaml
+      services:
+        app:
+          env_file:
+            - .env               # Contains OAUTH_SERVICE_URL=http://app:3001
+          networks:
+            - app-network
+            - oauth-service_oauth-network
+      ```
+   
+   3. Configure your database to use a different port:
+      ```yaml
+      services:
+        db:
+          ports:
+            - "5433:5432"    # Different from OAuth service's 5432
+      ```
+   
+   4. **Important Network Notes:**
+      - The `oauth-service_oauth-network` must be created before starting your service
+      - You can create it by running `docker network create oauth-service_oauth-network`
+      - This network allows secure communication between your service and the OAuth service
+      - The network name must match exactly: `oauth-service_oauth-network`
+   
+   5. Add code to access tokens from your service, example:
+      ```typescript
+      const OAUTH_SERVICE_URL = process.env.OAUTH_SERVICE_URL || 'http://app:3001';
+      
+      export async function getHubSpotToken(customerId: string): Promise<string> {
+        try {
+          const response = await fetch(`${OAUTH_SERVICE_URL}/api/get-token?customerId=${customerId}`);
+          const data = await response.json();
+          if (data.accessToken) {
+            return data.accessToken;
+          }
+          throw new Error(data.errorMessage || 'Failed to get access token');
+        } catch (error) {
+          console.error('Failed to get token:', error);
+          throw error;
+        }
+      }
+      ```
 
-2. Add the network and configuration to your service:
-```yaml
-services:
-  app:
-    env_file:
-      - .env               # Contains OAUTH_SERVICE_URL=http://app:3001
-    networks:
-      - app-network
-      - oauth-service_oauth-network
-```
+2. **Remote Build Context:**
+   
+   Example docker-compose.yml:
+   ```yaml
+   services:
+     oauth-db:
+       image: postgres:15
+       env_file:
+         - ./oauth-service.env
+       volumes:
+         - oauth_postgres_data:/var/lib/postgresql/data
+       healthcheck:
+         test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres}"]
 
-3. Configure your database to use a different port:
-```yaml
-  db:
-    ports:
-      - "5433:5432"    # Different from OAuth service's 5432
-```
+     oauth-prisma-migrate:
+       build:
+         context: https://github.com/hubspotdev/oauth-service.git#containerization
+       command: npx prisma migrate deploy
+       env_file:
+         - ./oauth-service.env
+       depends_on:
+         oauth-db:
+           condition: service_healthy
 
-4. Important Network Notes:
-   - The `oauth-service_oauth-network` must be created before starting your service
-   - You can create it by running `docker network create oauth-service_oauth-network`
-   - This network allows secure communication between your service and the OAuth service
-   - The network name must match exactly: `oauth-service_oauth-network`
+     oauth-service:
+       build:
+         context: https://github.com/hubspotdev/oauth-service.git#containerization
+       env_file:
+         - ./oauth-service.env
+       ports:
+         - "3001:3001"
+       depends_on:
+         oauth-db:
+           condition: service_healthy
+         oauth-prisma-migrate:
+           condition: service_completed_successfully
+       healthcheck:
+         test: ["CMD-SHELL", "curl -f http://localhost:3001/api/get-install-url || exit 1"]
+       restart: always
+   ```
 
-5. Add code to access tokens from your service, example:
-```typescript
-const OAUTH_SERVICE_URL = process.env.OAUTH_SERVICE_URL || 'http://app:3001';
-
-export async function getHubSpotToken(customerId: string): Promise<string> {
-  try {
-    const response = await fetch(`${OAUTH_SERVICE_URL}/api/get-token?customerId=${customerId}`);
-    const data = await response.json();
-    if (data.accessToken) {
-      return data.accessToken;
-    }
-    throw new Error(data.errorMessage || 'Failed to get access token');
-  } catch (error) {
-    console.error('Failed to get token:', error);
-    throw error;
-  }
-}
-```
+   **Example:** See the complete implementation at [crm-object-sync containerization branch](https://github.com/hubspotdev/crm-object-sync/tree/containerization)
 
 
 ## Available Scripts
